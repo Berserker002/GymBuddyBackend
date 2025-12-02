@@ -14,9 +14,8 @@ from app.db.schemas import (
     WorkoutUpdateRequest,
 )
 from app.db.session import get_db
-from app.db.utils import ensure_user, resolve_user_id
+from app.db.utils import ensure_user
 from app.services.ai_daily import generate_daily_plan
-from app.services.progression import apply_progression
 
 router = APIRouter(prefix="/api/workout", tags=["workouts"])
 
@@ -58,13 +57,7 @@ async def get_today_workout(
     pref_obj = await _user_preferences(db, user.id)
     preferences = pref_obj.custom_variations if pref_obj else None
     history = await _log_history(db, user.id)
-    daily_plan = await generate_daily_plan(base_program, preferences, list(history.values()))
-
-    for exercise in daily_plan.get("exercises", []):
-        exercise_id = exercise.get("id")
-        if exercise_id:
-            prior = history.get(exercise_id, [])
-            apply_progression(exercise, prior)
+    daily_plan = await generate_daily_plan(base_program, preferences, history)
 
     workout = Workout(
         user_id=user.id,
@@ -109,10 +102,10 @@ async def update_workout(
 async def log_workout(
     payload: WorkoutLogRequest, db: AsyncSession = Depends(get_db), token: str = Depends(verify_jwt)
 ):
-    user_id = resolve_user_id(token)
+    user = await ensure_user(db, token)
 
     log = WorkoutLog(
-        user_id=user_id,
+        user_id=user.id,
         workout_id=payload.workout_id,
         exercise_id=payload.exercise_id,
         actual_weight=payload.actual_weight,
@@ -133,10 +126,10 @@ async def finish_workout(
     db: AsyncSession = Depends(get_db),
     token: str = Depends(verify_jwt),
 ):
-    user_id = resolve_user_id(token)
+    user = await ensure_user(db, token)
 
     current_logs = await db.execute(
-        select(WorkoutLog).where(WorkoutLog.user_id == user_id, WorkoutLog.workout_id == workout_id)
+        select(WorkoutLog).where(WorkoutLog.user_id == user.id, WorkoutLog.workout_id == workout_id)
     )
     logs = current_logs.scalars().all()
 
@@ -145,7 +138,7 @@ async def finish_workout(
         previous_weight = await db.execute(
             select(WorkoutLog.actual_weight)
             .where(
-                WorkoutLog.user_id == user_id,
+                WorkoutLog.user_id == user.id,
                 WorkoutLog.exercise_id == log.exercise_id,
                 WorkoutLog.workout_id != workout_id,
             )
