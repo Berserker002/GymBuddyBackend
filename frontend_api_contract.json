@@ -56,6 +56,7 @@
       "description": "Create and return today's workout plan using the latest program plus preferences and history. Also persists a Workout row for the day.",
       "headers": {"Authorization": "Bearer <token>"},
       "response_example": {
+        "workout_id": "5c4c7f0d-06f9-4f20-a1c9-09be5d8c3df0",
         "day": "Upper",
         "exercises": [
           {"id": "bench_press", "sets": 3, "reps": "8-10", "target_weight": 62.5},
@@ -65,7 +66,7 @@
       "notes": [
         "Progression is applied per exercise using prior logs (adds +2.5kg when 90%+ completion).",
         "Preference swaps replace exercise ids when custom_variations are stored.",
-        "The created Workout row's id is needed when logging sets; capture it from DB if exposed in future responses."
+        "The created Workout row's id is returned as workout_id for use when logging sets."
       ]
     },
     {
@@ -139,7 +140,8 @@
       "headers": {"Authorization": "Bearer <token>"},
       "query_params": {"exercise_id": "bench_press"},
       "response_example": {
-        "bench_press": [
+        "exercise": "bench_press",
+        "data": [
           {"date": "2024-02-01", "weight": 60.0},
           {"date": "2024-02-04", "weight": 62.5}
         ]

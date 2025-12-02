@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,7 +69,11 @@ async def get_today_workout(
     await db.commit()
     await db.refresh(workout)
 
-    return WorkoutPlan(day=workout.day_name, exercises=daily_plan.get("exercises", []))
+    return WorkoutPlan(
+        workout_id=workout.id,
+        day=workout.day_name,
+        exercises=daily_plan.get("exercises", []),
+    )
 
 
 @router.patch("/update")
@@ -104,6 +108,10 @@ async def log_workout(
 ):
     user = await ensure_user(db, token)
 
+    workout = await db.get(Workout, payload.workout_id)
+    if not workout or workout.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout not found")
+
     log = WorkoutLog(
         user_id=user.id,
         workout_id=payload.workout_id,
@@ -127,6 +135,10 @@ async def finish_workout(
     token: str = Depends(verify_jwt),
 ):
     user = await ensure_user(db, token)
+
+    workout = await db.get(Workout, workout_id)
+    if not workout or workout.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout not found")
 
     current_logs = await db.execute(
         select(WorkoutLog).where(WorkoutLog.user_id == user.id, WorkoutLog.workout_id == workout_id)

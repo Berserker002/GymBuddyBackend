@@ -30,14 +30,21 @@ class ProgramResponse(BaseModel):
         orm_mode = True
 
 
-class WorkoutPlan(BaseModel):
-    day: str
-    exercises: list[dict[str, Any]]
+class SwapRequest(BaseModel):
+    exercise_id: str
+    action: str
+    new_exercise: str | None = None
 
 
 class WorkoutUpdateRequest(BaseModel):
     day: str
-    changes: list[dict[str, Any]]
+    changes: list[SwapRequest]
+
+
+class WorkoutPlan(BaseModel):
+    workout_id: uuid.UUID | None = None
+    day: str
+    exercises: list[dict[str, Any]]
 
 
 class WorkoutLogRequest(BaseModel):
@@ -75,9 +82,3 @@ class ExerciseGuideResponse(BaseModel):
     steps: list[str]
     mistakes: list[str]
     metadata: dict[str, Any] | None = None
-
-
-class SwapRequest(BaseModel):
-    exercise_id: str
-    action: str
-    new_exercise: str | None = None
