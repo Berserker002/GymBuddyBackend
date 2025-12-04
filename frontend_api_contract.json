@@ -1,0 +1,172 @@
+{
+  "base_url": "http://localhost:8000",
+  "auth": {
+    "type": "bearer",
+    "header": "Authorization: Bearer <frontend-issued-token>",
+    "notes": [
+      "Backend currently derives a deterministic user ID from the token; replace with real Supabase/custom JWT validation when ready."
+    ]
+  },
+  "endpoints": [
+    {
+      "name": "Initialize Program",
+      "method": "POST",
+      "path": "/api/program/init",
+      "description": "Generate and persist a multi-day program for the authenticated user.",
+      "headers": {"Content-Type": "application/json", "Authorization": "Bearer <token>"},
+      "request_example": {
+        "goal": "hypertrophy",
+        "experience": "intermediate",
+        "equipment": ["full_gym"],
+        "lifts": {"bench": 60, "squat": 80}
+      },
+      "response_example": {
+        "id": "08d7d5b2-2b56-4fef-9136-9a2e3557072c",
+        "split": "upper_lower",
+        "program_json": {
+          "split": "upper_lower",
+          "days": [
+            {
+              "day": "Upper",
+              "exercises": [
+                {"id": "bench_press", "sets": 3, "reps": "8-10", "target_weight": 60},
+                {"id": "barbell_row", "sets": 3, "reps": "8-10", "target_weight": 50}
+              ]
+            },
+            {
+              "day": "Lower",
+              "exercises": [
+                {"id": "back_squat", "sets": 3, "reps": "8-10", "target_weight": 80},
+                {"id": "romanian_deadlift", "sets": 3, "reps": "10-12", "target_weight": 70}
+              ]
+            }
+          ],
+          "generated_at": "2024-02-01T12:34:56.000000"
+        },
+        "created_at": "2024-02-01T12:34:56.000000"
+      },
+      "notes": [
+        "Program JSON is returned as stored; OpenAI integration can later replace the deterministic stub without breaking contract."
+      ]
+    },
+    {
+      "name": "Get Today's Workout",
+      "method": "GET",
+      "path": "/api/workout/today",
+      "description": "Create and return today's workout plan using the latest program plus preferences and history. Also persists a Workout row for the day.",
+      "headers": {"Authorization": "Bearer <token>"},
+      "response_example": {
+        "workout_id": "5c4c7f0d-06f9-4f20-a1c9-09be5d8c3df0",
+        "day": "Upper",
+        "exercises": [
+          {"id": "bench_press", "sets": 3, "reps": "8-10", "target_weight": 62.5},
+          {"id": "barbell_row", "sets": 3, "reps": "8-10", "target_weight": 52.5}
+        ]
+      },
+      "notes": [
+        "Progression is applied per exercise using prior logs (adds +2.5kg when 90%+ completion).",
+        "Preference swaps replace exercise ids when custom_variations are stored.",
+        "The created Workout row's id is returned as workout_id for use when logging sets."
+      ]
+    },
+    {
+      "name": "Update Editable Workout",
+      "method": "PATCH",
+      "path": "/api/workout/update",
+      "description": "Persist user-driven swaps/changes into preferences so future daily plans honor them.",
+      "headers": {"Content-Type": "application/json", "Authorization": "Bearer <token>"},
+      "request_example": {
+        "day": "Upper",
+        "changes": [
+          {"exercise_id": "overhead_press", "action": "swap", "new_exercise": "arnold_press"}
+        ]
+      },
+      "response_example": {
+        "status": "updated",
+        "changes": [
+          {"exercise_id": "overhead_press", "action": "swap", "new_exercise": "arnold_press"}
+        ],
+        "preferences": {"overhead_press": "arnold_press"}
+      },
+      "notes": [
+        "Only swap actions are currently handled; they are stored on the user preference record as custom_variations and avoid_exercises."
+      ]
+    },
+    {
+      "name": "Log Workout (Set-by-Set)",
+      "method": "POST",
+      "path": "/api/workout/log",
+      "description": "Record a set or exercise outcome for the given workout.",
+      "headers": {"Content-Type": "application/json", "Authorization": "Bearer <token>"},
+      "request_example": {
+        "workout_id": "5c4c7f0d-06f9-4f20-a1c9-09be5d8c3df0",
+        "exercise_id": "bench_press",
+        "actual_weight": 62.5,
+        "target_weight": 62.5,
+        "sets": 3,
+        "reps": "8,8,7",
+        "completed": true
+      },
+      "response_example": {"status": "logged", "log_id": "b2c988a3-7df1-4d1d-b04d-e2f83c90e6c1"},
+      "notes": [
+        "Ensure the workout_id matches the Workout created when calling /api/workout/today for the same day.",
+        "actual_weight/target_weight may be null if not tracked; completed defaults to true."
+      ]
+    },
+    {
+      "name": "Finish Workout",
+      "method": "POST",
+      "path": "/api/workout/finish",
+      "description": "Finalize a workout and receive simple progress deltas compared to the previous session for each exercise logged.",
+      "headers": {"Authorization": "Bearer <token>"},
+      "query_params": {"workout_id": "5c4c7f0d-06f9-4f20-a1c9-09be5d8c3df0"},
+      "response_example": {
+        "message": "Great work!",
+        "progress": {
+          "bench_press": "+2.5kg",
+          "barbell_row": "+0.0kg"
+        }
+      },
+      "notes": [
+        "Deltas compare the actual_weight of each log in the current workout against the last logged weight for that exercise.",
+        "If no prior logs exist, progress may be empty/null."
+      ]
+    },
+    {
+      "name": "History",
+      "method": "GET",
+      "path": "/api/history",
+      "description": "Return weight history for a given exercise for the authenticated user.",
+      "headers": {"Authorization": "Bearer <token>"},
+      "query_params": {"exercise_id": "bench_press"},
+      "response_example": {
+        "exercise": "bench_press",
+        "data": [
+          {"date": "2024-02-01", "weight": 60.0},
+          {"date": "2024-02-04", "weight": 62.5}
+        ]
+      }
+    },
+    {
+      "name": "Exercise Guide",
+      "method": "POST",
+      "path": "/api/exercise/guide",
+      "description": "Fetch a text (and future vision) exercise guide; cached by exercise name when provided.",
+      "headers": {"Content-Type": "application/json", "Authorization": "Bearer <token>"},
+      "request_example": {
+        "exercise_name": "bench_press",
+        "image_url": null
+      },
+      "response_example": {
+        "muscles": ["chest", "triceps"],
+        "steps": ["Set up", "Perform controlled reps", "Rack the weight"],
+        "mistakes": ["Bouncing reps", "Flared elbows"],
+        "metadata": {"source": "placeholder", "image_url": null}
+      },
+      "notes": [
+        "If exercise_name is provided and cached, the cached guide is returned; otherwise a placeholder is generated and cached for text mode.",
+        "image_url will be used by future vision support but is accepted today for contract stability."
+      ]
+    }
+  ]
+}
