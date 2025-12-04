@@ -3,11 +3,19 @@ from __future__ import with_statement
 import asyncio
 from logging.config import fileConfig
 
+import sys
+from pathlib import Path
+
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+
+# Ensure the backend package is importable when running Alembic commands
+ROOT_DIR = Path(__file__).resolve().parents[1]
+BACKEND_DIR = ROOT_DIR / "backend"
+sys.path.append(str(BACKEND_DIR))
 
 from app.core.config import get_settings
 from app.db.base import Base
