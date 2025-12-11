@@ -18,6 +18,11 @@ class ProgramCreate(BaseModel):
     experience: str
     equipment: list[str]
     lifts: dict[str, float] | None = None
+    gender: str | None = None
+    age: int | None = None
+    height_cm: int | None = None
+    weight_kg: float | None = None
+    training_days_per_week: int | None = None
 
 
 class ProgramResponse(BaseModel):
