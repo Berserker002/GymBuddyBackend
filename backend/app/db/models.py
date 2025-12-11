@@ -14,7 +14,7 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    email: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     goal: Mapped[str | None]
     experience: Mapped[str | None]
     equipment: Mapped[list[str] | None] = mapped_column(ARRAY(String))
@@ -28,6 +28,12 @@ class User(Base):
     programs: Mapped[list["Program"]] = relationship(back_populates="user")
     workouts: Mapped[list["Workout"]] = relationship(back_populates="user")
     logs: Mapped[list["WorkoutLog"]] = relationship(back_populates="user")
+    profile: Mapped["UserProfile"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    strength_estimate: Mapped["StrengthEstimate"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class UserPreference(Base):
@@ -73,6 +79,8 @@ class Workout(Base):
     day_name: Mapped[str] = mapped_column(String, nullable=False)
     plan_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship(back_populates="workouts")
     logs: Mapped[list["WorkoutLog"]] = relationship(back_populates="workout")
@@ -115,3 +123,40 @@ class ExerciseGuideCache(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    gender: Mapped[str | None] = mapped_column(String)
+    age: Mapped[int | None] = mapped_column(Integer)
+    height_cm: Mapped[int | None] = mapped_column(Integer)
+    weight_kg: Mapped[float | None] = mapped_column(Float)
+    equipment: Mapped[str | None] = mapped_column(String)
+    goal: Mapped[str | None] = mapped_column(String)
+    training_days_per_week: Mapped[int | None] = mapped_column(Integer)
+
+    user: Mapped[User] = relationship(back_populates="profile")
+
+
+class StrengthEstimate(Base):
+    __tablename__ = "strength_estimates"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    bench_press_kg: Mapped[float | None] = mapped_column(Float)
+    squat_kg: Mapped[float | None] = mapped_column(Float)
+    deadlift_kg: Mapped[float | None] = mapped_column(Float)
+    lat_pulldown_kg: Mapped[float | None] = mapped_column(Float)
+    dumbbell_press_kg: Mapped[float | None] = mapped_column(Float)
+    dumbbell_row_kg: Mapped[float | None] = mapped_column(Float)
+    goblet_squat_kg: Mapped[float | None] = mapped_column(Float)
+    max_pushups: Mapped[int | None] = mapped_column(Integer)
+    max_pullups: Mapped[int | None] = mapped_column(Integer)
+    plank_seconds: Mapped[int | None] = mapped_column(Integer)
+
+    user: Mapped[User] = relationship(back_populates="strength_estimate")
