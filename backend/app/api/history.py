@@ -17,9 +17,9 @@ async def get_history(
 ):
     user = await ensure_user(db, token)
     result = await db.execute(
-        select(WorkoutLog.logged_at, WorkoutLog.actual_weight)
+        select(WorkoutLog.logged_at, WorkoutLog.actual_weight, WorkoutLog.target_weight)
         .where(WorkoutLog.user_id == user.id, WorkoutLog.exercise_id == exercise_id)
         .order_by(WorkoutLog.logged_at)
     )
-    entries = [HistoryEntry(date=row[0].date(), weight=row[1] or 0) for row in result.all()]
+    entries = [HistoryEntry(date=row[0].date(), weight=row[1] or row[2] or 0) for row in result.all()]
     return HistoryResponse(exercise=exercise_id, data=entries)
